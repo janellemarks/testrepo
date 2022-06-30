@@ -32,9 +32,11 @@ install.packages("httr")
 require("httr")
 library(httr)
 
+
 install.packages("xml2")
 require("xml2")
 library(xml2)
+
 
 install.packages("rvest")
 require("rvest")
@@ -52,6 +54,7 @@ library(xml2)
 install.packages("rvest")
 require("rvest")
 library(rvest)
+
 ```
 
 ###TASK 1: Get a COVID-19 pandemic Wiki page using HTTP request"
@@ -65,10 +68,13 @@ get_wiki_covid19_page <- function(wiki_base_url,query_parms) {
 
 }
 
+
 wiki_base_url <- "https://en.wikipedia.org/w/index.php"
 query_parms<-list(title="Template:COVID-19_testing_by_country")
 
+
 get_wiki_covid19_page(wiki_base_url,query_parms)
+
 
 
 ```
@@ -216,6 +222,7 @@ The goal of task 7 is using a regular expression to find any countries start wit
 # Use a regular expression `United.+` to find matches
 # Print the matched country names
 grep("United.+",country_list, value=TRUE)
+
 
 
 ```
