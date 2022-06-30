@@ -1,0 +1,286 @@
+---
+title: "Analysis of Global COVID-19 Pandemic Data"
+output: html_notebook
+---
+
+Estimated time needed: 90 minutes
+
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+Overview:
+There are 10 tasks in this final project. All tasks will be graded by your peers who are also completing this assignment within the same session.
+
+You need to submit the following the screenshot for the code and output for each task for review.
+
+If you need to refresh your memories about specific coding details, you may refer to previous hands-on labs for code examples.
+
+
+
+
+install.packages("httr")
+require("httr")
+library(httr)
+
+install.packages("xml2")
+require("xml2")
+library(xml2)
+
+install.packages("rvest")
+require("rvest")
+library(rvest)
+
+```{r}
+install.packages("httr")
+require("httr")
+library(httr)
+
+install.packages("xml2")
+require("xml2")
+library(xml2)
+
+install.packages("rvest")
+require("rvest")
+library(rvest)
+```
+
+###TASK 1: Get a COVID-19 pandemic Wiki page using HTTP request"
+
+
+
+```{r}
+get_wiki_covid19_page <- function(wiki_base_url,query_parms) {
+    response<- GET(wiki_base_url, query=query_parms) 
+    return(response)
+
+}
+
+wiki_base_url <- "https://en.wikipedia.org/w/index.php"
+query_parms<-list(title="Template:COVID-19_testing_by_country")
+
+get_wiki_covid19_page(wiki_base_url,query_parms)
+
+
+```
+
+###TASK 2: Extract COVID-19 testing data table from the wiki HTML page
+```{r}
+# Get the root html node from the http response in task 1 
+root_node<-read_html("https://en.wikipedia.org/w/index.php?title=Template:COVID-19_testing_by_country")
+root_node
+```
+```{r}
+# Get the table node from the root html node
+table_node<-html_node(root_node,"table")
+
+# Read the table node and convert it into a data frame, and print the data frame for review
+table_node
+covidtesting_data_frame<-html_table(table_node)
+covidtesting_data_frame
+```
+
+###TASK 3: Pre-process and export the extracted data frame
+
+The goal of task 3 is to pre-process the extracted data frame from the previous step, and export it as a csv file
+
+```{r}
+# Print the summary of the data frame
+summary(covidtesting_data_frame)
+```
+```{r}
+preprocess_covid_data_frame <- function(data_frame) {
+    
+    shape <- dim(data_frame)
+
+    # Remove the World row
+    data_frame<-data_frame[!(data_frame$`Country or region`=="World"),]
+    # Remove the last row
+    data_frame <- data_frame[1:172, ]
+    
+    # We dont need the Units and Ref columns, so can be removed
+    data_frame["Ref."] <- NULL
+    data_frame["Units[b]"] <- NULL
+    
+    # Renaming the columns
+    names(data_frame) <- c("country", "date", "tested", "confirmed", "confirmed.tested.ratio", "tested.population.ratio", "confirmed.population.ratio")
+    
+    # Convert column data types
+    data_frame$country <- as.factor(data_frame$country)
+    data_frame$date <- as.factor(data_frame$date)
+    data_frame$tested <- as.numeric(gsub(",","",data_frame$tested))
+    data_frame$confirmed <- as.numeric(gsub(",","",data_frame$confirmed))
+    data_frame$'confirmed.tested.ratio' <- as.numeric(gsub(",","",data_frame$`confirmed.tested.ratio`))
+    data_frame$'tested.population.ratio' <- as.numeric(gsub(",","",data_frame$`tested.population.ratio`))
+    data_frame$'confirmed.population.ratio' <- as.numeric(gsub(",","",data_frame$`confirmed.population.ratio`))
+    
+    return(data_frame)
+}
+
+# call `preprocess_covid_data_frame` function and assign it to a new data dataframe
+preprocess_covid_data_frame(covidtesting_data_frame)
+
+
+```
+
+```{r}
+# call `preprocess_covid_data_frame` function and assign it to a new data dataframe
+processed_covidtesting_data_frame<- data.frame(preprocess_covid_data_frame(covidtesting_data_frame))
+print(processed_covidtesting_data_frame)
+```
+```{r}
+# Print the summary of the processed data frame again
+summary(processed_covidtesting_data_frame)
+```
+```{r}
+# Export the data frame to a csv file
+write.csv(processed_covidtesting_data_frame,file='C:/Users/JanelleM/Downloads/processed_covidtesting_data_frame.csv',row.names = FALSE)
+```
+
+```{r}
+# Get working directory
+wd <- getwd()
+# Get exported 
+file_path <- paste(wd, sep="", "/processed_covidtesting_data_frame.csv")
+# File path
+print(file_path)
+file.exists(file_path)
+```
+
+###TASK 4: Get a subset of the extracted data frame
+The goal of task 4 is to get the 5th to 10th rows from the data frame with only country and confirmed columns selected
+```{r}
+# Read covid_data_frame_csv from the csv file
+covid_data_frame_csv<-read.csv('C:/Users/JanelleM/Downloads/processed_covidtesting_data_frame.csv')
+covid_data_frame_csv
+# Get the 5th to 10th rows, with two "country" "confirmed" columns
+covid_subset<- covid_data_frame_csv[c(5:10),c(1,4)]
+covid_subset
+```
+
+
+
+
+
+
+###TASK 5: Calculate worldwide COVID testing positive ratio
+
+
+The goal of task 5 is to get the total confirmed and tested cases worldwide, and try to figure the overall positive ratio using confirmed cases / tested cases
+
+```{r}
+# Get the total confirmed cases worldwide
+total_confirmed_cases_worldwide<-sum(covid_data_frame_csv$confirmed)
+total_confirmed_cases_worldwide
+# Get the total tested cases worldwide
+total_tested_cases_worldwide<-sum(covid_data_frame_csv$tested)
+total_tested_cases_worldwide
+# Get the positive ratio (confirmed / tested)
+positive_ratio<- total_confirmed_cases_worldwide/total_tested_cases_worldwide
+positive_ratio
+
+```
+
+
+###TASK 6: Get a country list which reported their testing data
+The goal of task 6 is to get a catalog or sorted list of countries who have reported their COVID-19 testing data
+```{r}
+# Get the `country` column
+country_list<- (covid_data_frame_csv[,1])
+# Check its class (should be Factor)
+class(country_list)
+# Convert the country column into character so that you can easily sort them
+character_country_list <- as.character( country_list )
+class(character_country_list)
+# Sort the countries AtoZ
+sort(character_country_list)
+# Sort the countries ZtoA
+ZtoA_country_list<-sort(character_country_list,decreasing = TRUE)
+# Print the sorted ZtoA list
+ZtoA_country_list
+```
+
+
+###TASK 7: Identify countries names with a specific pattern¶
+The goal of task 7 is using a regular expression to find any countries start with United
+```{r}
+# Use a regular expression `United.+` to find matches
+# Print the matched country names
+grep("United.+",country_list, value=TRUE)
+
+
+```
+
+
+###TASK 8: Pick two countries you are interested, and then review their testing data
+
+
+The goal of task 8 is to compare the COVID-19 test data between two countires, you will need to select two rows from the dataframe, and select country, confirmed, confirmed-population-ratio columns
+```{r}
+# Select a subset (should be only one row) of data frame based on a selected country name and columns
+angola_subset<- covid_data_frame_csv[c(5),c(1,4,7)]
+angola_subset
+
+# Select a subset (should be only one row) of data frame based on a selected country name and columns
+jamaica_subset<- covid_data_frame_csv[c(81),c(1,4,7)]
+jamaica_subset
+
+```
+
+
+###TASK 9: Compare which one of the selected countries has a larger ratio of confirmed cases to population
+
+
+The goal of task 9 is to find out which country you have selected before has larger ratio of confirmed cases to population, which may indicate that country has higher COVID-19 infection risk
+```{r}
+# Use if-else statement
+higher_risk<- function(subset_1, subset_2){
+
+if(subset_1$confirmed.population.ratio>subset_2$confirmed.population.ratio) {
+    print(subset_1$country)
+ } else {
+    print(subset_2$country)
+ }
+}
+
+higher_risk(angola_subset, jamaica_subset)
+```
+
+
+
+#TASK 10: Find countries with confirmed to population ratio rate less than a threshold¶
+
+
+The goal of task 10 is to find out which countries have the confirmed to population ratio less than 1%, it may indicate the risk of those countries are relatively low
+```{r}
+# Get a subset of any countries with `confirmed.population.ratio` less than the threshold
+country_list<- (covid_data_frame_csv[,1])
+
+confirmed_population_ratio_array<- (covid_data_frame_csv[,7])
+
+low_risk<- function(confirmed_population_ratio_array,country_list){
+counter<-1
+for(ratio in confirmed_population_ratio_array){
+if(ratio<0.01) {
+    print(country_list[counter])
+  
+}
+counter<- counter+1
+}
+}
+
+low_risk(confirmed_population_ratio_array,country_list)
+
+
+
+```
+
